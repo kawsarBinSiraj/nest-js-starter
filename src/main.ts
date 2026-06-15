@@ -16,6 +16,7 @@ import { GlobalExceptionFilter } from './core/filters/global-exception.filter.js
 import { TransformInterceptor } from './core/interceptors/transform.interceptor.js';
 import { LoggingInterceptor } from './core/interceptors/logging.interceptor.js';
 import { globalValidationPipe } from './core/pipes/validation.pipe.js';
+import { DbGuard } from './core/guards/db.guard.js';
 
 /* Resolve the Vite dev port from a full URL or a plain port string. */
 function resolvePort(urlOrPort: string, fallback: number): number {
@@ -49,7 +50,7 @@ async function bootstrap() {
    );
 
    const config = app.get(ConfigService);
-   const port = config.get<number>('app.port', 3000);
+   const port = config.get<number>('app.port', 5000);
    const corsOrigins = config.get<string[]>('app.corsOrigins', []);
 
    /* Security: Helmet with dynamic CSP. */
@@ -93,10 +94,12 @@ async function bootstrap() {
       exclude: ['health'],
    });
 
-   /* Register global pipes, filters, and interceptors. */
+   /* Register global pipes, filters, interceptors, and guards. */
    app.useGlobalPipes(globalValidationPipe);
    app.useGlobalFilters(new GlobalExceptionFilter());
    app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
+   /* DbGuard rejects all requests with 503 while the DB is not yet connected. */
+   app.useGlobalGuards(app.get(DbGuard));
 
    /* Swagger docs — */
    const swaggerConfig = config.get('swagger');

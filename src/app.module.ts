@@ -13,7 +13,7 @@ import clientConfig from './config/client.config.js';
 import databaseConfig from './config/database.config.js';
 import swaggerConfig from './config/swagger.config.js';
 import { validateEnv } from './config/env.validation.js';
-import { PrismaModule } from './infra/database/prisma.module.js';
+import { DatabaseModule } from './infra/database/database.module.js';
 import { LoggerModule } from './infra/logger/logger.module.js';
 import { MailModule } from './infra/mail/mail.module.js';
 import { AppCacheModule } from './infra/cache/cache.module.js';
@@ -64,7 +64,7 @@ import { HealthModule } from './modules/health/health.module.js';
          : []),
 
       /* Infrastructure */
-      PrismaModule,
+      DatabaseModule,
       LoggerModule,
       MailModule,
       AppCacheModule,

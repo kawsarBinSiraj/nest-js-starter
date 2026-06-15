@@ -1,12 +1,12 @@
 # NestJS Starter
 
-A full-stack starter template with a NestJS API, Fastify, Prisma, PostgreSQL, JWT authentication, mail flows, Swagger docs, and a Vite React client.
+A full-stack starter template with a NestJS API, Fastify, TypeORM, PostgreSQL, JWT authentication, mail flows, Swagger docs, and a Vite React client.
 
 ## Stack
 
 - NestJS 11 with Fastify
 - TypeScript ESM
-- Prisma with PostgreSQL
+- TypeORM with PostgreSQL
 - JWT access and refresh token authentication
 - Role-based guards and decorators
 - Email verification and password reset mail templates
@@ -23,7 +23,8 @@ A full-stack starter template with a NestJS API, Fastify, Prisma, PostgreSQL, JW
 - Health endpoint at `/health`
 - API prefix at `/api/v1`
 - Swagger UI at `/api/docs`
-- Prisma client generated into `src/generated/prisma/client`
+- TypeORM entities with UUID primary keys
+- Auto-sync schema in development, migration-based in production
 - Development server proxies the Vite client through the Nest app
 
 ## Requirements
@@ -67,22 +68,25 @@ VITE_GOOGLE_CLIENT_ID=
 VITE_JWT_SECRET=change-me-client-secret
 ```
 
-Generate the Prisma client:
+In **development**, TypeORM will auto-sync the schema (`synchronize: true`) when the app starts — no extra step needed.
+
+In **production**, schema sync is disabled. Use migrations instead:
 
 ```bash
-npm run prisma:generate
+# Generate a migration from entity changes
+npm run db:migration:generate src/infra/database/migrations/MyMigrationName
+
+# Apply pending migrations
+npm run db:migrate
+
+# Revert the last migration
+npm run db:migrate:revert
 ```
 
-Run database migrations:
+Seed the database with a default admin user (`admin@example.com` / `Admin@123!`):
 
 ```bash
-npm run prisma:migrate
-```
-
-Optional seed:
-
-```bash
-npm run prisma:seed
+npm run db:seed
 ```
 
 ## Development
@@ -152,22 +156,31 @@ Set production environment variables before starting the app. At minimum, config
 ## Scripts
 
 ```bash
-npm run start:dev          # Run API watch mode and Vite client together
-npm run dev:client         # Vite client only
-npm run build              # Build API and client
-npm run start:prod         # Run compiled production server
-npm run lint               # Lint and auto-fix TypeScript files
-npm run format             # Format source and test files
-npm run test               # Unit tests
-npm run test:e2e           # End-to-end tests
-npm run test:cov           # Coverage report
-npm run test:type-check    # TypeScript no-emit check
-npm run prisma:generate    # Generate Prisma client
-npm run prisma:migrate     # Run dev migration
-npm run prisma:migrate:prod # Deploy migrations in production
-npm run prisma:seed        # Seed database
-npm run prisma:studio      # Open Prisma Studio
+npm run start:dev              # Run API watch mode and Vite client together
+npm run dev:client             # Vite client only
+npm run build                  # Build API and client
+npm run start:prod             # Run compiled production server
+npm run lint                   # Lint and auto-fix TypeScript files
+npm run format                 # Format source and test files
+npm run test                   # Unit tests
+npm run test:e2e               # End-to-end tests
+npm run test:cov               # Coverage report
+npm run test:type-check        # TypeScript no-emit check
+npm run db:migrate             # Run pending TypeORM migrations
+npm run db:migrate:revert      # Revert last TypeORM migration
+npm run db:migration:generate  # Generate migration from entity changes
+npm run db:migration:create    # Create empty migration file
+npm run db:seed                # Seed database with admin user
 ```
+
+## Database
+
+TypeORM is configured with `autoLoadEntities: true` — entities registered in any module via `TypeOrmModule.forFeature()` are automatically picked up by the root connection.
+
+- **Development**: `synchronize: true` keeps the schema in sync with entities automatically.
+- **Production**: `synchronize: false` — run `npm run db:migrate` before deploying.
+- The standalone `DataSource` in `src/infra/database/data-source.ts` is used exclusively by the TypeORM CLI for migration commands.
+- Entities live alongside their feature module under `src/modules/<feature>/entities/`.
 
 ## Project Structure
 
@@ -175,9 +188,14 @@ npm run prisma:studio      # Open Prisma Studio
 src/
   config/          App, auth, database, Swagger, and env config
   core/            Guards, decorators, filters, interceptors, pipes
-  generated/       Generated Prisma client
-  infra/           Database, logger, cache, and mail infrastructure
+  infra/
+    cache/         Cache module
+    database/      TypeORM module, DataSource, migrations, seed
+    logger/        Logger module
+    mail/          Mail module and templates
   modules/         Feature modules: auth, users, health
+    users/
+      entities/    TypeORM User entity
   shared/          Shared constants, types, and utilities
 
 client/
@@ -187,14 +205,10 @@ client/
   src/lib/         Client helpers and providers
   src/services/    API and auth services
   src/store/       Zustand stores
-
-prisma/
-  schema.prisma    Database schema
-  seed.ts          Seed script
 ```
 
 ## Notes
 
-- `tsconfig.build.tsbuildinfo` may appear after builds because TypeScript incremental compilation is enabled. It is a local build cache and can be ignored.
 - Do not commit real secrets. Keep local values in `.env`.
-- The generated Prisma client is placed under `src/generated/prisma/client`; regenerate it after schema changes.
+- `tsconfig.build.tsbuildinfo` may appear after builds; it is a local incremental build cache and can be ignored.
+- Keep `synchronize: false` in production — always use migrations to manage schema changes safely.

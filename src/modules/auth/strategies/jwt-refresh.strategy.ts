@@ -5,10 +5,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { FastifyRequest } from 'fastify';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../../infra/database/prisma.service.js';
+import { User } from '../../users/entities/user.entity.js';
 import { JwtPayload } from '../../../shared/types/jwt-payload.type.js';
 
 @Injectable()
@@ -18,7 +20,8 @@ export class JwtRefreshStrategy extends PassportStrategy(
 ) {
   constructor(
     private readonly config: ConfigService,
-    private readonly prisma: PrismaService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -34,7 +37,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
     const refreshToken = authHeader.replace('Bearer', '').trim();
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.userRepository.findOne({
       where: { id: payload.sub },
     });
 
