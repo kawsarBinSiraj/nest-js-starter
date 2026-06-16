@@ -1,14 +1,11 @@
 /**
  * File: src/modules/health/health.module.ts
- * Purpose: Health-check module using @nestjs/terminus.
+ * Purpose: Health-check module.
  */
 import { Module } from '@nestjs/common';
-import { TerminusModule } from '@nestjs/terminus';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthController } from './health.controller.js';
 
 @Module({
-  imports: [TerminusModule, TypeOrmModule],
   controllers: [HealthController],
 })
 export class HealthModule {}
