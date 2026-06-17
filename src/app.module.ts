@@ -1,8 +1,19 @@
 /**
  * File: src/app.module.ts
  * Purpose: Root module — imports config, infra, feature modules, and rate limiting.
+ *
+ * NestJS Request Execution Order:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ 1. Middleware        → CorrelationId, RequestLogger     │
+ * │ 2. Guards            → DbGuard, JwtAuthGuard, Roles     │
+ * │ 3. Interceptors (pre)→ LoggingInterceptor               │
+ * │ 4. Pipes             → ValidationPipe                   │
+ * │ 5. Route Handler     → Controller method                │
+ * │ 6. Interceptors (post)→ TransformInterceptor            │
+ * │ 7. Exception Filters → GlobalExceptionFilter            │
+ * └─────────────────────────────────────────────────────────┘
  */
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -20,7 +31,7 @@ import { AppCacheModule } from './infra/cache/cache.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { HealthModule } from './modules/health/health.module.js';
-
+import { CorrelationIdMiddleware, RequestLoggerMiddleware } from './core/middleware/index.js';
 
 @Module({
    imports: [
@@ -75,4 +86,14 @@ import { HealthModule } from './modules/health/health.module.js';
       HealthModule,
    ],
 })
-export class AppModule {}
+
+/**
+ * Middleware executes FIRST in the NestJS pipeline (before Guards).
+ * Order within middleware matters — CorrelationId runs before RequestLogger
+ * so the logger can include the correlation ID.
+ */
+export class AppModule implements NestModule {
+   configure(consumer: MiddlewareConsumer) {
+      consumer.apply(CorrelationIdMiddleware, RequestLoggerMiddleware).forRoutes('*');
+   }
+}

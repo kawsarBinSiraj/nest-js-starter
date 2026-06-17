@@ -72,12 +72,29 @@ async function bootstrap() {
    /* Global API prefix — excludes health endpoint. */
    app.setGlobalPrefix('api/v1', { exclude: ['health'] });
 
-   /* Register global pipes, filters, and interceptors. */
-   app.useGlobalPipes(globalValidationPipe);
-   app.useGlobalFilters(new GlobalExceptionFilter());
-   app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
-   /* DbGuard — rejects DB-dependent requests with 503 if DB is not connected. */
+   /*
+    * ─── NestJS Request Execution Pipeline (registration order matches execution) ───
+    *
+    * 1. MIDDLEWARE  → Registered in AppModule.configure() (CorrelationId, RequestLogger)
+    * 2. GUARDS     → Authorize the request; reject early with 401/403/503.
+    * 3. INTERCEPTORS (pre-handler) → Wrap the handler call (logging timer starts).
+    * 4. PIPES      → Validate & transform @Body(), @Param(), @Query() data.
+    * 5. ROUTE HANDLER → Your controller method (business logic).
+    * 6. INTERCEPTORS (post-handler) → Transform/wrap the response envelope.
+    * 7. EXCEPTION FILTERS → Catch & format any unhandled exception.
+    */
+
+   /* 2. Guards — global guards apply to every route. */
    app.useGlobalGuards(app.get(DbGuard));
+
+   /* 3 & 6. Interceptors — LoggingInterceptor times the request, TransformInterceptor wraps response. */
+   app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
+
+   /* 4. Pipes — validate and transform incoming payloads. */
+   app.useGlobalPipes(globalValidationPipe);
+
+   /* 7. Exception Filters — last resort, catches anything unhandled. */
+   app.useGlobalFilters(new GlobalExceptionFilter());
 
    /* Swagger docs — */
    const swaggerConfig = config.get('swagger');
