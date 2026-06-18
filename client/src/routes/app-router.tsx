@@ -18,8 +18,8 @@
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { GuestRoute, ProtectedRoute } from '@/proxy';
-import AuthLayout from '@/app/layouts/auth-layout';
-import DashboardLayout from '@/app/layouts/dashboard-layout';
+import AuthLayout from '@/app/app-layouts/auth-layout';
+import DashboardLayout from '@/app/app-layouts/dashboard-layout';
 import { LoginPage } from '@/app/pages/login-page';
 import { SignupPage } from '@/app/pages/signup-page';
 import { ForgotPage } from '@/app/pages/forgot-page';
