@@ -4,6 +4,11 @@
  */
 import { createConnection } from 'net';
 
+/** Paths the Nest server answers itself — never proxied to Vite or answered with index.html. */
+export function isServerPath(url: string): boolean {
+   return url.startsWith('/api') || url.startsWith('/uploads/') || url === '/health';
+}
+
 /**
  * Resolves a Vite dev port from either a full URL (e.g. "http://localhost:5173")
  * or a plain port string (e.g. "5173"). Falls back to `fallback` if parsing fails.

@@ -15,7 +15,7 @@ import { TransformInterceptor } from './core/interceptors/transform.interceptor.
 import { LoggingInterceptor } from './core/interceptors/logging.interceptor.js';
 import { globalValidationPipe } from './core/pipes/validation.pipe.js';
 import { DbGuard } from './core/guards/db.guard.js';
-import { startViteDevServer } from './shared/utils/vite-dev.helper.js';
+import { setupClient } from './shared/utils/client.helper.js';
 
 async function bootstrap() {
    const logger = new Logger('Bootstrap');
@@ -33,7 +33,7 @@ async function bootstrap() {
    const port = config.get<number>('app.port', 5000);
    const corsOrigins = config.get<string[]>('app.corsOrigins', []);
 
-   /* Security: Helmet with dynamic CSP. */
+   /* Security: Helmet with dynamic CSP. blob: lets the admin preview images before uploading. */
    await app.register(fastifyHelmet, {
       contentSecurityPolicy: isProduction
          ? {
@@ -41,7 +41,7 @@ async function bootstrap() {
                  defaultSrc: ["'self'"],
                  scriptSrc: ["'self'"],
                  styleSrc: ["'self'", "'unsafe-inline'"],
-                 imgSrc: ["'self'", 'data:', 'https:'],
+                 imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
                  connectSrc: ["'self'"],
                  fontSrc: ["'self'"],
                  objectSrc: ["'none'"],
@@ -53,9 +53,12 @@ async function bootstrap() {
                  defaultSrc: ["'self'"],
                  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
                  styleSrc: ["'self'", "'unsafe-inline'"],
+                 imgSrc: ["'self'", 'data:', 'blob:', 'https:', 'http://localhost:*'],
                  connectSrc: ["'self'", 'ws:', 'wss:', 'http://localhost:*'],
               },
            },
+      /* Product images are loaded by the storefront from another origin. */
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
    });
 
    /* CORS configuration. */
@@ -115,19 +118,23 @@ async function bootstrap() {
       jsonDocumentUrl: 'api/docs.json',
    });
 
-   /* Dev mode — spawn Vite if not already running, proxy all non-API traffic
-      to it, and log the local URLs. Skipped entirely in production. */
-   if (!isProduction) {
-      const clientUrl = config.get<string>('CLIENT_URL', 'http://localhost:5173');
-      await startViteDevServer(app, clientUrl);
-   }
+   /* Client — dev: Vite with hot reload, production: built files from dist/public. */
+   await setupClient(app, config, isProduction);
 
    /* Start listening on all interfaces. */
    await app.listen(port, '0.0.0.0');
-   if (!isProduction) {
-      logger.log(`Application running on port ${port}`);
-      logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
-      logger.log(`Frontend (via Vite proxy): http://localhost:${port}`);
+
+   const serverUrl = `http://localhost:${port}`;
+   logger.log(`Mode:     ${isProduction ? 'production' : 'development'}`);
+   logger.log(`Server:   ${serverUrl}`);
+   logger.log(`API:      ${serverUrl}/api/v1`);
+   logger.log(`Swagger:  ${serverUrl}/api/docs`);
+   logger.log(`Health:   ${serverUrl}/health`);
+   if (isProduction) {
+      logger.log(`Client:   ${serverUrl} (built files)`);
+   } else {
+      logger.log(`Client:   ${config.get<string>('CLIENT_URL', 'http://localhost:5173')} (Vite)`);
+      logger.log(`Client:   ${serverUrl} (via server proxy)`);
    }
 }
 
